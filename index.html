@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Ventas Pro - Final</title>
+    <style>
+        :root { --blue: #1a73e8; --green: #28a745; --red: #dc3545; --bg: #f8f9fa; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 0; }
+        
+        /* 1. PÁGINA DE SEGURIDAD */
+        #login-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--blue); display: flex; align-items: center; justify-content: center; z-index: 5000; }
+        .login-box { background: white; padding: 30px; border-radius: 20px; width: 85%; max-width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .login-box h2 { color: var(--blue); margin-bottom: 20px; }
+
+        /* NAVEGACIÓN */
+        .navbar { display: none; background: white; border-bottom: 2px solid #e0e0e0; position: sticky; top: 0; z-index: 1000; }
+        .tab-btn { flex: 1; padding: 15px 5px; border: none; background: none; font-weight: bold; color: #666; cursor: pointer; font-size: 0.85rem; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .tab-btn.active { color: var(--blue); border-bottom: 3px solid var(--blue); }
+
+        /* CONTENIDO */
+        .module { display: none; padding: 15px; }
+        .module.active { display: block; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 15px; border: 1px solid #eee; }
+        
+        input, select { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; margin-bottom: 12px; }
+        
+        .btn { border: none; padding: 15px; width: 100%; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.3s; }
+        .btn-blue { background: var(--blue); color: white; }
+        .btn-green { background: var(--green); color: white; }
+        
+        /* BOTÓN VACIAR TODO (MEJORADO) */
+        .btn-vaciar { background: #fff1f0; color: var(--red); border: 1px solid var(--red); padding: 8px 15px; border-radius: 8px; font-size: 14px; width: auto; margin-left: auto; display: flex; align-items: center; gap: 5px; }
+        
+        /* BOTÓN SALIR Y BLOQUEAR (MEJORADO) */
+        .btn-salir { background: #333; color: white; margin-top: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+        .item-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+        .btn-edit { background: #e8f0fe; color: var(--blue); border: 1px solid var(--blue); padding: 5px; border-radius: 6px; }
+        .btn-del { background: #fff1f0; color: var(--red); border: 1px solid var(--red); padding: 5px; border-radius: 6px; }
+        .monto-total { font-size: 2.2rem; font-weight: bold; color: var(--blue); display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="login-screen">
+        <div class="login-box">
+            <h2>🔐 Acceso Pro</h2>
+            <input type="text" id="user" placeholder="Usuario Administrador">
+            <input type="password" id="pass" placeholder="Contraseña de Caja">
+            <button class="btn btn-blue" onclick="validarAcceso()">🔓 Ingresar al Sistema</button>
+        </div>
+    </div>
+
+    <nav class="navbar" id="main-nav">
+        <button class="tab-btn active" onclick="switchTab(event, 'mod-inventario')">⚙️<span>Inventario</span></button>
+        <button class="tab-btn" onclick="switchTab(event, 'mod-ventas')">🛒<span>Ventas</span></button>
+        <button class="tab-btn" onclick="switchTab(event, 'mod-caja')">💵<span>Caja</span></button>
+    </nav>
+
+    <div id="mod-inventario" class="module">
+        <div class="card">
+            <h3>💰 Tasa del Día (BCV)</h3>
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="tasaInput" value="39.8745" step="0.0001">
+                <button class="btn btn-blue" style="width: auto;" onclick="obtenerTasa()">🔄</button>
+            </div>
+            <small style="color: var(--green); font-weight: bold;">● Conectado al BCV</small>
+        </div>
+        <div class="card">
+            <h3>📦 Registro de Productos</h3>
+            <input type="hidden" id="editIndex" value="-1">
+            <input type="text" id="invNombre" placeholder="Nombre del Producto">
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="invCosto" placeholder="Costo Bulto $">
+                <input type="number" id="invUnd" placeholder="Unidades">
+            </div>
+            <input type="number" id="invMargen" value="30">
+            <button class="btn btn-blue" id="btnGuardar" onclick="guardarProducto()">💾 Guardar Producto</button>
+            <div id="lista-inventario" style="margin-top:20px;"></div>
+        </div>
+    </div>
+
+    <div id="mod-ventas" class="module">
+        <div class="card" style="border-top: 5px solid var(--green);">
+            <h3>🛍️ Nueva Venta</h3>
+            <select id="select-prod" onchange="previewPrecio()"></select>
+            <div id="preview" style="background:#f6ffed; border:1px solid #b7eb8f; padding:12px; border-radius:10px; margin-bottom:15px; display:none;"></div>
+            <input type="number" id="vtaCant" value="1">
+            <button class="btn btn-green" onclick="agregarAlCarrito()">➕ Añadir a la Compra</button>
+        </div>
+        <div id="lista-compra-directa" style="padding: 10px;"></div>
+        <button class="btn-vaciar" onclick="vaciarCarrito()">🗑️ Vaciar Todo</button>
+    </div>
+
+    <div id="mod-caja" class="module">
+        <div class="card">
+            <h3>📑 Resumen de Pago</h3>
+            <span class="monto-total" id="totalBs">0,00 Bs</span>
+            <span id="totalUsd" style="font-weight:bold; color:#888;">(0,00 $)</span>
+        </div>
+        <div class="card">
+            <h3>💵 Cálculo de Vuelto</h3>
+            <input type="number" id="pagoBs" placeholder="Cliente Paga con (Bs)" oninput="calcularVuelto()">
+            <div style="background:#fffbe6; padding:20px; border-radius:12px; border:1px solid #ffe58f; text-align:center; margin-bottom:20px;">
+                <small>Vuelto en Bolívares:</small><br>
+                <strong id="vBs" style="font-size: 2.2rem; color: #856404;">0,00</strong>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-blue" onclick="window.print()">🖨️ Ticket</button>
+                <button class="btn btn-green" onclick="enviarWhatsApp()">📱 WhatsApp</button>
+            </div>
+            <button class="btn btn-salir" onclick="location.reload()">🔒 Salir y Bloquear Sistema</button>
+        </div>
+    </div>
+
+    <script>
+        let inventario = JSON.parse(localStorage.getItem('inventario')) || [];
+        let carrito = [];
+        const fm = (n) => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2 }).format(n);
+
+        // FUNCIÓN DE SEGURIDAD
+        function validarAcceso() {
+            const u = document.getElementById('user').value;
+            const p = document.getElementById('pass').value;
+            if(u === "admin" && p === "1234") { // Cambia aquí tu usuario y clave
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('main-nav').style.display = 'flex';
+                document.getElementById('mod-ventas').classList.add('active'); // Abre en Ventas por defecto
+                actualizarInterfaz();
+            } else { alert("Datos incorrectos"); }
+        }
+
+        function switchTab(evt, tabName) {
+            let modules = document.getElementsByClassName("module");
+            for (let i = 0; i < modules.length; i++) modules[i].classList.remove("active");
+            let btns = document.getElementsByClassName("tab-btn");
+            for (let i = 0; i < btns.length; i++) btns[i].classList.remove("active");
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+
+        function obtenerTasa() {
+            fetch('https://ve.dolarapi.com/v1/dolares/oficial').then(r => r.json()).then(d => {
+                if(d.promedio) document.getElementById('tasaInput').value = d.promedio;
+            });
+        }
+
+        function guardarProducto() {
+            let n = document.getElementById('invNombre').value;
+            let c = parseFloat(document.getElementById('invCosto').value);
+            let u = parseInt(document.getElementById('invUnd').value);
+            let m = (parseFloat(document.getElementById('invMargen').value) / 100) + 1;
+            let editIdx = parseInt(document.getElementById('editIndex').value);
+            if(!n || isNaN(c)) return;
+            let pD = (c / u) * m;
+            let pData = { nombre: n, precioD: pD, costo: c, und: u, margen: document.getElementById('invMargen').value };
+            if(editIdx === -1) inventario.push(pData);
+            else inventario[editIdx] = pData;
+            localStorage.setItem('inventario', JSON.stringify(inventario));
+            actualizarInterfaz();
+            limpiarForm();
+        }
+
+        function editarProducto(i) {
+            let p = inventario[i];
+            document.getElementById('invNombre').value = p.nombre;
+            document.getElementById('invCosto').value = p.costo;
+            document.getElementById('invUnd').value = p.und;
+            document.getElementById('invMargen').value = p.margen;
+            document.getElementById('editIndex').value = i;
+            document.getElementById('btnGuardar').innerText = "🔄 Actualizar Producto";
+            switchTab(null, 'mod-inventario');
+        }
+
+        function actualizarInterfaz() {
+            let html = ""; let options = "<option value=''>-- Producto --</option>";
+            inventario.forEach((p, i) => {
+                html += `<div class='item-row'><span><b>${p.nombre}</b> (${fm(p.precioD)}$)</span><div>
+                    <button class='btn-edit' onclick='editarProducto(${i})'>✏️</button>
+                    <button class='btn-del' onclick='eliminarProd(${i})'>🗑️</button>
+                </div></div>`;
+                options += `<option value='${i}'>${p.nombre}</option>`;
+            });
+            document.getElementById('lista-inventario').innerHTML = html;
+            document.getElementById('select-prod').innerHTML = options;
+        }
+
+        function eliminarProd(i) {
+            if(confirm("¿Eliminar?")) { inventario.splice(i, 1); localStorage.setItem('inventario', JSON.stringify(inventario)); actualizarInterfaz(); }
+        }
+
+        function previewPrecio() {
+            let idx = document.getElementById('select-prod').value;
+            let t = parseFloat(document.getElementById('tasaInput').value);
+            let div = document.getElementById('preview');
+            if(idx !== "") {
+                let p = inventario[idx];
+                div.style.display = "block";
+                div.innerHTML = `Precio: <b>${fm(p.precioD)}$</b> | <b>${fm(p.precioD * t)} Bs</b>`;
+            } else div.style.display = "none";
+        }
+
+        function agregarAlCarrito() {
+            let idx = document.getElementById('select-prod').value;
+            let cant = parseFloat(document.getElementById('vtaCant').value);
+            let t = parseFloat(document.getElementById('tasaInput').value);
+            if(idx === "") return;
+            let p = inventario[idx];
+            carrito.push({ nombre: p.nombre, cant, subtotalBs: p.precioD * cant * t });
+            renderCarrito();
+        }
+
+        function renderCarrito() {
+            let html = ""; let total = 0;
+            let t = parseFloat(document.getElementById('tasaInput').value);
+            carrito.forEach((item, i) => {
+                total += item.subtotalBs;
+                html += `<div class='item-row'><span>${item.cant}x ${item.nombre}</span><span>${fm(item.subtotalBs)} Bs</span></div>`;
+            });
+            document.getElementById('lista-compra-directa').innerHTML = html;
+            document.getElementById('totalBs').innerText = fm(total) + " Bs";
+            document.getElementById('totalUsd').innerText = "(" + fm(total/t) + " $)";
+        }
+
+        function vaciarCarrito() { if(confirm("¿Vaciar venta?")) { carrito = []; renderCarrito(); } }
+
+        function calcularVuelto() {
+            let total = parseFloat(document.getElementById('totalBs').innerText.replace(/\./g, '').replace(',', '.'));
+            let pago = parseFloat(document.getElementById('pagoBs').value) || 0;
+            document.getElementById('vBs').innerText = fm(pago - total);
+        }
+
+        function limpiarForm() {
+            document.getElementById('invNombre').value = ""; document.getElementById('editIndex').value = "-1";
+            document.getElementById('btnGuardar').innerText = "💾 Guardar Producto";
+        }
+
+        function enviarWhatsApp() {
+            let total = document.getElementById('totalBs').innerText;
+            let items = carrito.map(i => `- ${i.cant} ${i.nombre}`).join('%0A');
+            let msg = `🎫 *TICKET DE COMPRA*%0A%0A${items}%0A%0A*Total:* ${total}%0A*Vuelto:* ${document.getElementById('vBs').innerText} Bs`;
+            window.open(`https://wa.me/?text=${msg}`, '_blank');
+        }
+    </script>
+</body>
+  </html>
